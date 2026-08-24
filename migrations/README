@@ -1,0 +1,50 @@
+# Migrations
+
+Database schema migrations managed by Alembic.
+
+## How it works
+
+Schema is defined in `app/db/models.py` using SQLAlchemy declarative models.
+Alembic diffs the models against the live database and generates migration files automatically.
+
+This service owns a dedicated database (nothing else is ever provisioned into
+it), so — unlike jarvis-backend, which has to share its database with
+LangGraph's own checkpoint tables — there's no `include_object` filtering or
+custom schema to bootstrap here.
+
+## Commands
+
+Run from the `jarvis-conversation-service/` directory.
+
+```bash
+# Apply all pending migrations
+make migrate
+
+# Auto-generate a new migration after editing models.py
+make migration name="describe_what_changed"
+
+# Check current migration state
+.venv/bin/alembic current
+
+# View migration history
+.venv/bin/alembic history
+
+# Rollback one migration
+.venv/bin/alembic downgrade -1
+
+# Rollback all migrations
+.venv/bin/alembic downgrade base
+```
+
+## Workflow
+
+1. Edit `app/db/models.py` — add a table, column, index, etc.
+2. Run `make migration name="add_something"`
+3. Review the generated file in `migrations/versions/`
+4. Run `make migrate` to apply
+
+## Versions
+
+| Revision | Description |
+|---|---|
+| `0001` | Create conversations and subagent_traces tables (carried over from jarvis-backend at the point this service was split out) |

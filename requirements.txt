@@ -4,5 +4,12 @@ pydantic>=2.9.2
 pydantic-settings>=2.10.1
 python-dotenv==1.0.1
 psycopg[binary,pool]>=3.1.0
-sqlalchemy>=2.0.0
+# The [asyncio] extra is what brings greenlet, which SQLAlchemy's async
+# engine cannot run without. Up to 2.0 greenlet came along by default, so
+# the bare name worked; 2.1 dropped it, opt-in only — this repo's very
+# first rebuild through CI (2026-10-08, this service had no Jenkins job
+# until now) resolved 2.1 and crash-looped at import with "requires that
+# the Python 'greenlet' library is installed". Same bug, same fix,
+# already hit and fixed in jarvis-file-service's requirements.txt.
+sqlalchemy[asyncio]>=2.0.0
 alembic>=1.13.0

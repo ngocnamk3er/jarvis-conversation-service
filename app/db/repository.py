@@ -4,7 +4,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db.connection import get_sessionmaker
-from app.db.models import Conversation, SubagentTrace
+from app.db.models import Conversation, MessageTrace, SubagentTrace
 
 
 def _conversation_dict(c: Conversation) -> dict:
@@ -121,3 +121,27 @@ async def get_subagent_traces(conversation_id: str) -> dict[str, list[dict]]:
             )
         )
         return {tool_call_id: events for tool_call_id, events in result}
+
+
+async def save_message_trace(conversation_id: str, message_id: str, trace_id: str) -> None:
+    """Save which Langfuse trace recorded a given assistant message — see
+    MessageTrace's docstring. Upsert for the same reason save_subagent_trace
+    is: a graph replay/resume can regenerate the same message_id."""
+    stmt = (
+        pg_insert(MessageTrace)
+        .values(message_id=message_id, conversation_id=conversation_id, trace_id=trace_id)
+        .on_conflict_do_update(index_elements=[MessageTrace.message_id], set_={"trace_id": trace_id})
+    )
+    async with get_sessionmaker()() as session:
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def get_message_traces(conversation_id: str) -> dict[str, str]:
+    async with get_sessionmaker()() as session:
+        result = await session.execute(
+            select(MessageTrace.message_id, MessageTrace.trace_id).where(
+                MessageTrace.conversation_id == conversation_id
+            )
+        )
+        return {message_id: trace_id for message_id, trace_id in result}

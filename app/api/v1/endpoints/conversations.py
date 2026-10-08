@@ -6,6 +6,7 @@ from app.schemas.conversation import (
     ContextTokensUpdate,
     ConversationCreate,
     ConversationOut,
+    MessageTraceUpdate,
     SandboxSessionUpdate,
     SubagentTraceUpdate,
     TitleUpdate,
@@ -73,3 +74,14 @@ async def save_subagent_trace(conversation_id: str, tool_call_id: str, body: Sub
 @router.get("/{conversation_id}/subagent-traces")
 async def get_subagent_traces(conversation_id: str):
     return await repository.get_subagent_traces(conversation_id)
+
+
+@router.put("/{conversation_id}/message-traces/{message_id}")
+async def save_message_trace(conversation_id: str, message_id: str, body: MessageTraceUpdate):
+    await repository.save_message_trace(conversation_id, message_id, body.trace_id)
+    return {"ok": True}
+
+
+@router.get("/{conversation_id}/message-traces")
+async def get_message_traces(conversation_id: str):
+    return await repository.get_message_traces(conversation_id)

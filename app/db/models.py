@@ -49,3 +49,25 @@ class SubagentTrace(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class MessageTrace(Base):
+    """Maps one assistant message to the Langfuse trace Jarvis recorded while
+    generating it — purely so the frontend's thumbs up/down control (see
+    jarvis-backend's observability.create_score) knows which trace to attach
+    feedback to, including after a reload (the live SSE stream already tells
+    it the trace_id directly; this is what the message-history endpoint reads
+    instead, same role subagent_traces plays for subagent output). Keyed by
+    the LangChain message id, which — like a `task` call's tool_call_id — is
+    stable across reloads, unlike a LangGraph run_id."""
+
+    __tablename__ = "message_traces"
+
+    message_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    trace_id: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

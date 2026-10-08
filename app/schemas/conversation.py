@@ -38,3 +38,7 @@ class SandboxSessionUpdate(BaseModel):
 
 class SubagentTraceUpdate(BaseModel):
     events: list[dict]
+
+
+class MessageTraceUpdate(BaseModel):
+    trace_id: str

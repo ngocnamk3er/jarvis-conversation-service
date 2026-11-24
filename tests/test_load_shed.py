@@ -61,3 +61,36 @@ def test_the_real_app_has_the_middleware():
     from app.main import app
 
     assert LoadShedMiddleware in [m.cls for m in app.user_middleware]
+
+
+# ---- /metrics: what an autoscaler can read instead of CPU ------------------------------------------------------------
+
+
+def _samples(text: str) -> dict[str, int]:
+    return {line.rsplit(" ", 1)[0]: int(line.rsplit(" ", 1)[1]) for line in text.splitlines() if line and not line.startswith("#")}
+
+
+async def test_metrics_report_what_is_in_flight_the_limit_and_the_refusals():
+    client, gate = build(2)
+    held = [asyncio.create_task(client.get("/api/v1/conversations")) for _ in range(2)]
+    await asyncio.sleep(0.05)
+    assert (await client.get("/api/v1/conversations")).status_code == 503
+    response = await asyncio.wait_for(client.get("/metrics"), timeout=1)             # answered although the class is full
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain; version=0.0.4")
+    assert _samples(response.text) == {
+        'jarvis_inflight_requests{class="default"}': 2,
+        'jarvis_inflight_limit{class="default"}': 2,
+        'jarvis_shed_requests_total{class="default"}': 1,
+    }
+    gate.set()
+    await asyncio.gather(*held)
+    after = _samples((await client.get("/metrics")).text)
+    assert after['jarvis_inflight_requests{class="default"}'] == 0 and after['jarvis_shed_requests_total{class="default"}'] == 1
+
+
+async def test_metrics_are_not_served_to_a_request_that_came_through_the_ingress():
+    client, _ = build(2)
+    for header in ("x-forwarded-for", "x-real-ip", "forwarded"):
+        response = await client.get("/metrics", headers={header: "203.0.113.9"})
+        assert response.status_code == 404 and "jarvis_" not in response.text, header
